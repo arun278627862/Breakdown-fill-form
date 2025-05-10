@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Breakdown Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* coolGray-900 (Darker Background) */
+            color: #D1D5DB; /* coolGray-300 (Lighter text for dark bg) */
+        }
+        .hidden {
+            display: none;
+        }
+        /* Main container styling */
+        .main-container {
+            background-color: #1F2937; /* coolGray-800 */
+            border: 1px solid #374151; /* coolGray-700 */
+            position: relative; /* For logo positioning */
+        }
+        .app-logo {
+            position: absolute;
+            top: 20px; /* Adjust as needed */
+            left: 20px; /* Adjust as needed */
+            width: 100px; /* Adjust as needed */
+            height: auto;
+            opacity: 0.8;
+        }
+        /* Card styling for breakdown items */
+        .breakdown-item {
+            background-color: #374151; /* coolGray-700 */
+            border: 1px solid #4B5563; /* coolGray-600 */
+            padding: 1.25rem; /* p-5 */
+            margin-bottom: 1rem;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .breakdown-item h3 {
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 600; /* font-semibold */
+            margin-bottom: 0.75rem;
+            color: #60A5FA; /* blue-400 */
+        }
+        .breakdown-item p {
+            margin-bottom: 0.375rem; /* mb-1.5 */
+            font-size: 0.875rem; /* text-sm */
+            color: #9CA3AF; /* coolGray-400 */
+        }
+        .breakdown-item p strong {
+            color: #D1D5DB; /* coolGray-300 */
+        }
+        .breakdown-item .actions {
+            margin-top: 1rem;
+            border-top: 1px solid #4B5563; /* coolGray-600 */
+            padding-top: 1rem;
+        }
+        .status-open {
+            color: #F87171; /* red-400 */
+            font-weight: bold;
+        }
+        .status-solved {
+            color: #34D399; /* green-400 */
+            font-weight: bold;
+        }
+
+        /* Modal styling */
+        .modal {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(17, 24, 39, 0.8); /* coolGray-900 with opacity */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: #1F2937; /* coolGray-800 */
+            color: #D1D5DB; /* coolGray-300 */
+            padding: 30px;
+            border-radius: 12px; /* rounded-xl */
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+            border: 1px solid #4B5563; /* coolGray-600 */
+        }
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+        .modal-content button {
+            margin-top: 25px;
+        }
+
+        /* Styling for open breakdowns list in report view */
+        #openBreakdownsListReportView ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        #openBreakdownsListReportView li {
+            background-color: #374151; /* coolGray-700 */
+            border: 1px solid #4B5563; /* coolGray-600 */
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.75rem;
+            border-radius: 0.5rem; /* rounded-lg */
+        }
+        #openBreakdownsListReportView li p strong {
+             color: #E5E7EB; /* coolGray-200 */
+        }
+
+
+        /* Input styling */
+        input[type="text"], input[type="email"], input[type="password"], input[type="datetime-local"], select, textarea {
+            background-color: #374151; /* coolGray-700 */
+            border-color: #4B5563; /* coolGray-600 */
+            color: #D1D5DB; /* coolGray-300 */
+            border-radius: 0.375rem; /* rounded-md */
+        }
+        input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="datetime-local"]:focus, select:focus, textarea:focus {
+            border-color: #60A5FA; /* blue-400 */
+            /* ring-color: #60A5FA; /* blue-400 */ /* Tailwind JIT might not pick this up directly in style tag, use box-shadow */
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.5); /* Equivalent to focus:ring-2 focus:ring-blue-400 */
+        }
+        /* For datetime-local calendar icon color */
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.8); /* Adjust to make it visible on dark background */
+        }
+        label {
+            color: #9CA3AF; /* coolGray-400 */
+        }
+        /* Button styling */
+        .btn {
+            font-weight: 600; /* font-semibold */
+            padding: 0.625rem 1.25rem; /* py-2.5 px-5 */
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.06);
+            transition: all 0.2s ease-in-out;
+        }
+        .btn-primary {
+            background-color: #4F46E5; /* indigo-600 */
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #4338CA; /* indigo-700 */
+        }
+        .btn-secondary {
+            background-color: #10B981; /* green-500 */
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #059669; /* green-600 */
+        }
+         .btn-danger {
+            background-color: #EF4444; /* red-500 */
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #DC2626; /* red-600 */
+        }
+        .btn-neutral {
+            background-color: #4B5563; /* coolGray-600 */
+            color: #D1D5DB; /* coolGray-300 */
+        }
+        .btn-neutral:hover {
+            background-color: #374151; /* coolGray-700 */
+        }
+
+        /* Header styling */
+        .page-header {
+            color: #E0E7FF; /* indigo-100 */
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .section-header {
+            color: #93C5FD; /* blue-300 */
+            border-bottom-color: #374151; /* coolGray-700 */
+        }
+
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="appContainer" class="container mx-auto max-w-3xl main-container shadow-2xl rounded-xl p-6 md:p-10">
+        <img src="image_5e2623.png" alt="Company Logo" class="app-logo" onerror="this.style.display='none'">
+
+        <div id="loginView">
+            <header class="mb-10 text-center pt-12"> <h1 class="text-4xl font-bold page-header">Breakdown Management System</h1>
+            </header>
+            <h2 class="text-2xl font-semibold mb-8 text-center section-header pb-3">User Login</h2>
+            <form id="loginForm" class="space-y-6 max-w-sm mx-auto">
+                <div>
+                    <label for="userRole" class="block text-sm font-medium">Select Role:</label>
+                    <select id="userRole" name="userRole" required class="mt-1 block w-full px-3 py-2 shadow-sm focus:outline-none sm:text-sm">
+                        <option value="Production">Production</option>
+                        <option value="maintenance">Maintenance</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium">Password:</label>
+                    <input type="password" id="password" name="password" required class="mt-1 block w-full px-3 py-2 shadow-sm focus:outline-none sm:text-sm">
+                </div>
+                <button type="submit" class="w-full btn btn-primary">Login</button>
+            </form>
+            <p class="mt-6 text-xs text-gray-500 text-center">
+                Default Password: <strong>arun123</strong>
+            </p>
+        </div>
+        
+        <div id="loggedInContent" class="hidden">
+            <header class="mb-10 text-center"> <div class="flex justify-between items-center">
+                    <h1 id="dynamicHeader" class="text-3xl font-bold page-header"></h1>
+                    <button id="logoutBtn" class="btn btn-danger text-sm">Logout</button>
+                </div>
+            </header>
+
+            <div id="messageArea" class="mb-6 p-4 rounded-lg text-center text-sm"></div>
+
+            <div id="breakdownFormView" class="hidden">
+                <h2 class="text-2xl font-semibold mb-6 section-header pb-3">Report New Breakdown</h2>
+                <form id="breakdownForm" class="space-y-6">
+                    <div>
+                        <label for="startTime" class="block text-sm font-medium">Breakdown Start Time:</label>
+                        <input type="datetime-local" id="startTime" name="startTime" required class="mt-1 block w-full px-3 py-2 shadow-sm focus:outline-none sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="stageName" class="block text-sm font-medium">Stage Name:</label>
+                        <input type="text" id="stageName" name="stageName" required placeholder="e.g., Assembly Line 1" class="mt-1 block w-full px-3 py-2 shadow-sm focus:outline-none sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="machineNo" class="block text-sm font-medium">Machine IS No. / Name:</label>
+                        <input type="text" id="machineNo" name="machineNo" required placeholder="e.g., MCH-00123" class="mt-1 block w-full px-3 py-2 shadow-sm focus:outline-none sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="submitterName" class="block text-sm font-medium">Your Name (Submitter):</label>
+                        <input type="text" id="submitterName" name="submitterName" required placeholder="Enter your full name" class="mt-1 block w-full px-3 py-2 shadow-sm focus:outline-none sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="problemDescription" class="block text-sm font-medium">Problem Description:</label>
+                        <textarea id="problemDescription" name="problemDescription" rows="3" required placeholder="Describe the issue" class="mt-1 block w-full px-3 py-2 shadow-sm focus:outline-none sm:text-sm"></textarea>
+                    </div>
+                    <div>
+                        <label for="emailTo" class="block text-sm font-medium">Maintenance Email (To):</label>
+                        <input type="email" id="emailTo" name="emailTo" placeholder="maintenance_team@example.com" value="maintenance_team@example.com" required class="mt-1 block w-full px-3 py-2 shadow-sm focus:outline-none sm:text-sm">
+                    </div>
+                    <button type="submit" class="w-full btn btn-primary">Raise Breakdown & Prepare Email</button>
+                </form>
+
+                <div id="openBreakdownsListReportView" class="mt-10 pt-6 border-t border-gray-700">
+                    </div>
+            </div>
+
+            <div id="maintenanceDashboardView" class="hidden">
+                <h2 class="text-2xl font-semibold mb-6 section-header pb-3">Maintenance Dashboard</h2>
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+                    <div class="flex-grow">
+                        <label for="filterStatus" class="block text-sm font-medium mb-1">Filter by status:</label>
+                        <select id="filterStatus" class="mt-1 block w-full md:w-1/2 lg:w-1/3 px-3 py-2 shadow-sm focus:outline-none sm:text-sm">
+                            <option value="all">All Breakdowns</option>
+                            <option value="open">Open Breakdowns</option>
+                            <option value="solved">Solved Breakdowns</option>
+                        </select>
+                    </div>
+                    <button id="exportExcelBtn" class="btn btn-neutral self-end sm:self-center">Export All to CSV</button>
+                </div>
+                <div id="breakdownList" class="space-y-4">
+                    </div>
+            </div>
+        </div> </div> <div id="simpleModal" class="modal">
+        <div class="modal-content">
+            <p id="modalMessage" class="text-base"></p>
+            <button id="closeModalBtn" class="btn btn-neutral">OK</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Constants & Passwords ---
+        const PASSWORDS = {
+            Production: "arun123", // Updated Password
+            maintenance: "arun123" // Updated Password
+        };
+        const SESSION_USER_KEY = "currentUserRole";
+        const API_BASE_URL = 'http://localhost:3000/api'; // Adjust if your server runs on a different port
+
+        // --- DOM Elements ---
+        const loginView = document.getElementById('loginView');
+        const loggedInContent = document.getElementById('loggedInContent');
+        const dynamicHeader = document.getElementById('dynamicHeader');
+        const logoutBtn = document.getElementById('logoutBtn');
+        
+        const breakdownFormView = document.getElementById('breakdownFormView');
+        const maintenanceDashboardView = document.getElementById('maintenanceDashboardView');
+        
+        const loginForm = document.getElementById('loginForm');
+        const breakdownForm = document.getElementById('breakdownForm');
+        
+        const breakdownList = document.getElementById('breakdownList');
+        const messageArea = document.getElementById('messageArea');
+        const filterStatus = document.getElementById('filterStatus');
+        const openBreakdownsListReportView = document.getElementById('openBreakdownsListReportView');
+
+        const simpleModal = document.getElementById('simpleModal');
+        const modalMessage = document.getElementById('modalMessage');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const exportExcelBtn = document.getElementById('exportExcelBtn');
+
+        // --- Utility Functions ---
+        function showMainView(viewToShow) {
+            loginView.classList.add('hidden');
+            loggedInContent.classList.add('hidden');
+            viewToShow.classList.remove('hidden');
+        }
+        
+        async function showSectionView(viewToShow, role) { // Made async
+            breakdownFormView.classList.add('hidden');
+            maintenanceDashboardView.classList.add('hidden');
+            
+            if (viewToShow) {
+                viewToShow.classList.remove('hidden');
+            }
+            if (role === 'Production') {
+                dynamicHeader.textContent = "Production Panel";
+                setCurrentTimeForBreakdown('startTime'); // Auto-fill start time
+                displayOpenBreakdownsInReportView();
+            } else if (role === 'maintenance') {
+                dynamicHeader.textContent = "Maintenance Dashboard";
+                loadAndDisplayBreakdowns();
+            } // Removed await here, as loadAndDisplayBreakdowns and displayOpenBreakdownsInReportView are called without await from here but are async themselves
+        }
+
+        function displayMessage(message, type = 'info') {
+            messageArea.textContent = message;
+            messageArea.className = 'mb-6 p-4 rounded-lg text-center text-sm ';
+            if (type === 'success') {
+                messageArea.classList.add('bg-green-500', 'text-white'); 
+            } else if (type === 'error') {
+                messageArea.classList.add('bg-red-500', 'text-white'); 
+            } else {
+                messageArea.classList.add('bg-blue-500', 'text-white'); 
+            }
+            setTimeout(() => {
+                messageArea.textContent = '';
+                messageArea.className = 'mb-6 p-4 rounded-lg text-center text-sm';
+            }, 5000);
+        }
+        
+        function showModal(message) {
+            modalMessage.textContent = message;
+            simpleModal.classList.add('active');
+        }
+
+        closeModalBtn.addEventListener('click', () => {
+            simpleModal.classList.remove('active');
+        });
+
+        async function getBreakdowns() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/breakdowns`);
+                if (!response.ok) {
+                    console.error("Failed to fetch breakdowns:", response.status, response.statusText);
+                    displayMessage(`Error fetching data: ${response.statusText || 'Server error'}`, 'error');
+                    return [];
+                }
+                const data = await response.json();
+                return Array.isArray(data) ? data : []; // Ensure it's an array
+            } catch (error) {
+                console.error("Error in getBreakdowns (fetch):", error);
+                displayMessage('Network error or server unavailable while fetching data.', 'error');
+                return [];
+            }
+        }
+
+        async function saveBreakdowns(breakdowns) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/breakdowns`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', },
+                    body: JSON.stringify(breakdowns),
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                    displayMessage(`Error saving data: ${errorData.message || 'Server error'}`, 'error');
+                    return false;
+                }
+                return true;
+            } catch (error) {
+                console.error("Error in saveBreakdowns (fetch):", error);
+                displayMessage('Network error or server unavailable while saving data.', 'error');
+                return false;
+            }
+        }
+
+        function formatDateTime(dateTimeString) {
+            if (!dateTimeString) return 'N/A';
+            try {
+                const date = new Date(dateTimeString);
+                if (isNaN(date.getTime())) return 'Invalid Date';
+                return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', hour12: true });
+            } catch (e) { return dateTimeString; }
+        }
+        
+        function setCurrentTimeForBreakdown(elementId) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+            
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.value = localDateTime;
+            }
+        }
+
+        // --- Login/Logout Logic ---
+        loginForm.addEventListener('submit', async function(event) { // Made async
+            event.preventDefault();
+            const role = document.getElementById('userRole').value;
+            const pass = document.getElementById('password').value;
+
+            if (PASSWORDS[role] && PASSWORDS[role] === pass) {
+                sessionStorage.setItem(SESSION_USER_KEY, role);
+                showMainView(loggedInContent);
+                if (role === 'Production') {
+                    await showSectionView(breakdownFormView, 'Production'); // await section view
+                } else if (role === 'maintenance') {
+                    await showSectionView(maintenanceDashboardView, 'maintenance'); // await section view
+                }
+                displayMessage('Login successful!', 'success');
+                loginForm.reset();
+            } else {
+                displayMessage('Incorrect role or password.', 'error');
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            sessionStorage.removeItem(SESSION_USER_KEY);
+            showMainView(loginView);
+            displayMessage('Logged out successfully.', 'info');
+        });
+
+        // --- Breakdown Form Logic (Production) ---
+        breakdownForm.addEventListener('submit', async function(event) { // Made async
+            event.preventDefault();
+            const newBreakdown = {
+                id: 'BD-' + Date.now(),
+                startTime: document.getElementById('startTime').value,
+                stageName: document.getElementById('stageName').value.trim(),
+                machineNo: document.getElementById('machineNo').value.trim(),
+                submitterName: document.getElementById('submitterName').value.trim(),
+                problemDescription: document.getElementById('problemDescription').value.trim(),
+                status: 'open',
+                endTime: null,
+                remarks: '',
+                reportedAt: new Date().toISOString()
+            };
+            const emailTo = document.getElementById('emailTo').value.trim();
+
+            if (!newBreakdown.startTime || !newBreakdown.stageName || !newBreakdown.machineNo || !newBreakdown.submitterName || !newBreakdown.problemDescription || !emailTo) {
+                displayMessage('Please fill in all required fields.', 'error');
+                return;
+            }
+
+            const breakdowns = await getBreakdowns(); // Await
+            breakdowns.unshift(newBreakdown);
+            const success = await saveBreakdowns(breakdowns); // Await
+
+            if (!success) {
+                // Error message already shown by saveBreakdowns
+                return;
+            }
+
+            await displayOpenBreakdownsInReportView(); // Await
+            
+            const subject = `Production Breakdown: ${newBreakdown.machineNo} at ${newBreakdown.stageName}`;
+            const body = `New breakdown reported:
+            \nMachine: ${newBreakdown.machineNo}
+            \nStage: ${newBreakdown.stageName}
+            \nReported By: ${newBreakdown.submitterName}
+            \nStart Time: ${formatDateTime(newBreakdown.startTime)}
+            \nProblem: ${newBreakdown.problemDescription}
+            \nPlease investigate.`;
+            const mailtoLink = `mailto:${emailTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            
+            displayMessage('Breakdown reported & saved! Preparing email...', 'success');
+            showModal("Breakdown saved. Click OK for email draft.");
+            closeModalBtn.onclick = () => {
+                simpleModal.classList.remove('active');
+                window.location.href = mailtoLink;
+                breakdownForm.reset();
+                setCurrentTimeForBreakdown('startTime');
+                closeModalBtn.onclick = () => simpleModal.classList.remove('active'); 
+            };
+        });
+        
+        // --- Display Open Breakdowns in Report View (Production) ---
+        async function displayOpenBreakdownsInReportView() { // Made async
+            if (!openBreakdownsListReportView) return;
+            let openBreakdowns = (await getBreakdowns()).filter(b => b.status === 'open').sort((a, b) => new Date(b.reportedAt) - new Date(a.reportedAt)); // Await
+            
+            openBreakdownsListReportView.innerHTML = '<h3 class="text-xl font-semibold mb-4 text-blue-300">Currently Open Breakdowns:</h3>';
+            if (openBreakdowns.length === 0) {
+                openBreakdownsListReportView.innerHTML += '<p class="text-gray-400 italic">No open breakdowns.</p>';
+                return;
+            }
+            const ul = document.createElement('ul');
+            ul.className = 'space-y-3';
+            openBreakdowns.forEach(bd => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <p class="font-medium text-gray-200"><strong>Machine:</strong> ${bd.machineNo}</p>
+                    <p class="text-xs text-gray-400"><strong>Stage:</strong> ${bd.stageName} | <strong>Started:</strong> ${formatDateTime(bd.startTime)} | <span class="status-open">OPEN</span></p>
+                `;
+                ul.appendChild(li);
+            });
+            openBreakdownsListReportView.appendChild(ul);
+        }
+
+        // --- Maintenance Dashboard Logic ---
+        async function loadAndDisplayBreakdowns() { // Made async
+            let breakdowns = await getBreakdowns(); // Await
+            const currentFilter = filterStatus.value;
+            if (currentFilter !== 'all') {
+                breakdowns = breakdowns.filter(b => b.status === currentFilter);
+            }
+            breakdowns.sort((a, b) => new Date(b.reportedAt) - new Date(a.reportedAt));
+            breakdownList.innerHTML = ''; 
+
+            if (breakdowns.length === 0) {
+                breakdownList.innerHTML = '<p class="text-gray-400 text-center py-4">No breakdowns matching filter.</p>';
+                return;
+            }
+
+            breakdowns.forEach(bd => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'breakdown-item';
+                let itemHtml = `
+                    <h3>Machine: ${bd.machineNo} <span class="text-sm font-normal text-gray-500">(ID: ${bd.id})</span></h3>
+                    <p><strong>Stage:</strong> ${bd.stageName}</p>
+                    <p><strong>Reported By:</strong> ${bd.submitterName}</p>
+                    <p><strong>Problem:</strong> ${bd.problemDescription.replace(/\n/g, '<br>')}</p>
+                    <p><strong>Breakdown Start:</strong> ${formatDateTime(bd.startTime)}</p>
+                    <p><strong>Reported At:</strong> ${formatDateTime(bd.reportedAt)}</p>
+                    <p><strong>Status:</strong> <span class="status-${bd.status}">${bd.status.toUpperCase()}</span></p>
+                `;
+
+                if (bd.status === 'open') {
+                    const nowForEndTime = new Date();
+                    const year = nowForEndTime.getFullYear();
+                    const month = String(nowForEndTime.getMonth() + 1).padStart(2, '0');
+                    const day = String(nowForEndTime.getDate()).padStart(2, '0');
+                    const hours = String(nowForEndTime.getHours()).padStart(2, '0');
+                    const minutes = String(nowForEndTime.getMinutes()).padStart(2, '0');
+                    const autoEndTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+                    itemHtml += `
+                        <div class="actions mt-4 space-y-3">
+                            <div>
+                                <label for="endTime-${bd.id}" class="block text-xs font-medium">Set End Time & Solve:</label>
+                                <input type="datetime-local" id="endTime-${bd.id}" value="${autoEndTime}" class="mt-1 block w-full sm:w-auto px-2 py-1.5 border rounded-md shadow-sm text-sm">
+                            </div>
+                            <div>
+                                <label for="remarks-${bd.id}" class="block text-xs font-medium">Resolution Remarks:</label>
+                                <textarea id="remarks-${bd.id}" rows="2" class="mt-1 block w-full px-2 py-1.5 border rounded-md shadow-sm text-sm" placeholder="Resolution details"></textarea>
+                            </div>
+                            <button onclick="solveBreakdown('${bd.id}')" class="btn btn-secondary text-sm">Mark as Solved</button>
+                        </div>
+                    `;
+                } else { 
+                    itemHtml += `<p><strong>Breakdown End:</strong> ${formatDateTime(bd.endTime)}</p>`;
+                    if (bd.remarks) {
+                         itemHtml += `<p><strong>Resolution Remarks:</strong> ${bd.remarks.replace(/\n/g, '<br>')}</p>`;
+                    }
+                }
+                itemDiv.innerHTML = itemHtml;
+                breakdownList.appendChild(itemDiv);
+            });
+        }
+
+        window.solveBreakdown = async function(breakdownId) { // Made async
+            const endTimeInput = document.getElementById(`endTime-${breakdownId}`);
+            const remarksInput = document.getElementById(`remarks-${breakdownId}`);
+            if (!endTimeInput || !endTimeInput.value) {
+                displayMessage('Please set end time.', 'error');
+                return;
+            }
+            const endTime = endTimeInput.value;
+            const remarks = remarksInput ? remarksInput.value.trim() : '';
+
+            let breakdowns = await getBreakdowns(); // Await
+            const idx = breakdowns.findIndex(b => b.id === breakdownId);
+
+            if (idx > -1) {
+                if (new Date(endTime) < new Date(breakdowns[idx].startTime)) {
+                    displayMessage('End time cannot be before start time.', 'error');
+                    return;
+                }
+                breakdowns[idx].status = 'solved';
+                breakdowns[idx].endTime = endTime;
+                breakdowns[idx].remarks = remarks;
+                const success = await saveBreakdowns(breakdowns); // Await
+                if (!success) return;
+
+                displayMessage(`Breakdown ${breakdownId} solved.`, 'success');
+                // No need to call loadAndDisplayBreakdowns() if saveBreakdowns was successful
+                // and the UI is optimistic. Or call it to ensure consistency.
+                await loadAndDisplayBreakdowns(); // Refresh list
+
+                const solvedBd = breakdowns[idx];
+                const emailToField = document.getElementById('emailTo'); 
+                const emailTo = emailToField && emailToField.value ? emailToField.value : 'management@example.com';
+                
+                const subject = `SOLVED: Production Breakdown ${solvedBd.machineNo}`;
+                let body = `Breakdown resolved:
+                \nMachine: ${solvedBd.machineNo}
+                \nStage: ${solvedBd.stageName}
+                \nReported By: ${solvedBd.submitterName}
+                \nProblem: ${solvedBd.problemDescription}
+                \nStart Time: ${formatDateTime(solvedBd.startTime)}
+                \nEnd Time: ${formatDateTime(solvedBd.endTime)}`;
+                if (solvedBd.remarks) body += `\nResolution Remarks: ${solvedBd.remarks}`;
+                body += `\nStatus: SOLVED`;
+                const mailtoLink = `mailto:${emailTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                
+                showModal("Breakdown solved. Click OK for email notification (optional).");
+                closeModalBtn.onclick = () => {
+                    simpleModal.classList.remove('active');
+                    window.location.href = mailtoLink;
+                    closeModalBtn.onclick = () => simpleModal.classList.remove('active'); 
+                };
+            } else {
+                displayMessage('Error: Breakdown not found.', 'error');
+            }
+        }
+        
+        filterStatus.addEventListener('change', loadAndDisplayBreakdowns);
+
+        // --- Helper function for CSV escaping ---
+        function escapeCSVField(field) {
+            if (field === null || field === undefined) {
+                return '';
+            }
+            let stringField = String(field);
+            // If the field contains a comma, newline, or double quote, enclose in double quotes
+            if (stringField.includes(',') || stringField.includes('\n') || stringField.includes('"')) {
+                // Escape existing double quotes by doubling them
+                stringField = stringField.replace(/"/g, '""');
+                return `"${stringField}"`;
+            }
+            return stringField;
+        }
+
+        // --- Export to Excel (CSV) ---
+        async function exportToExcel() { // Made async
+            const breakdowns = await getBreakdowns(); // Await, Get all breakdowns, unfiltered
+            if (breakdowns.length === 0) {
+                displayMessage('No data to export.', 'info');
+                return;
+            }
+
+            const headers = ['ID', 'Start Time', 'Stage Name', 'Machine No.', 'Submitter Name', 'Problem Description', 'Status', 'End Time', 'Resolution Remarks', 'Reported At'];
+            let csvContent = headers.join(',') + '\n';
+
+            breakdowns.forEach(bd => {
+                const row = [
+                    escapeCSVField(bd.id), escapeCSVField(formatDateTime(bd.startTime)), escapeCSVField(bd.stageName),
+                    escapeCSVField(bd.machineNo), escapeCSVField(bd.submitterName), escapeCSVField(bd.problemDescription),
+                    escapeCSVField(bd.status), escapeCSVField(formatDateTime(bd.endTime)), escapeCSVField(bd.remarks),
+                    escapeCSVField(formatDateTime(bd.reportedAt))
+                ];
+                csvContent += row.join(',') + '\n';
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "production_breakdowns.csv");
+            link.style.visibility = 'hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+            displayMessage('Data exported successfully as CSV.', 'success');
+        }
+
+        // --- Initial Setup ---
+        document.addEventListener('DOMContentLoaded', async () => { // Made async
+            const currentUserRole = sessionStorage.getItem(SESSION_USER_KEY);
+            if (currentUserRole) {
+                showMainView(loggedInContent);
+                if (currentUserRole === 'Production') {
+                    await showSectionView(breakdownFormView, 'Production'); // Await
+                } else if (currentUserRole === 'maintenance') {
+                    await showSectionView(maintenanceDashboardView, 'maintenance'); // Await
+                    if (exportExcelBtn) { // Add listener if button exists
+                        exportExcelBtn.addEventListener('click', exportToExcel);
+                    }
+                }
+            } else {
+                showMainView(loginView);
+            }
+            closeModalBtn.onclick = () => simpleModal.classList.remove('active'); 
+        });
+
+    </script>
+</body>
+</html>
